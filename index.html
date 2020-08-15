@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Music Library</title>
+    <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
+</head>
+
+<body>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/font-awesome/css/font-awesome.min.css">
+    <script src="./js/audiojs/audiojs/audio.min.js"></script>
+    <script>
+        window.$ = window.jQuery = require('jquery');
+    </script>
+    <script src="./js/vibrant/Vibrant.js"></script>
+    <div class="col-md-12 fleft pad0">
+        <div class="col-md-12 fleft pad0">
+            <div class="card">
+                <div class="col-md-12 pad0">
+                    <div class="col-md-5 fleft pad0 media-head">
+                        <h5 class="card-header">Media</h5>
+                    </div>
+                    <div class="col-md-7 fright pad0">
+                        <div id="holder">
+                            <input type="file" id="web_dir" webkitdirectory />
+                            <div id="capture">Drag Folder Here or Browse</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body pad0">
+                    <div class="col-md-12 fleft pad0">
+                        <div class="col-md-12 fleft  pad0 player_div">
+                            <div class="col-md-5 fleft pad0 "><img draggable="false" src="img/rvm.png" id="picture"
+                                    style="width: 100%;height:290px"></div>
+                            <div class="col-md-7 fleft pad0" id="title">
+                                <h1 id="track">Track</h1>
+                                <marquee>
+                                    <h4 id="artist">Artist</h4>
+                                </marquee>
+                                <h4 id="album">Album</h4>
+                                <div id="composer">Composer</div>
+                                <div class="col-md-12 fleft txtcenter">
+                                    <div id="loading"></div>
+                                    <button type="button" id="prevBtn" class="btn btn-primary-outline btn-lg">
+                                        <i class="fa fa-step-backward fa-2x fa-inverse"></i>
+                                    </button>
+                                    <button type="button" id="playBtn" class="playpause btn btn-primary-outline btn-lg">
+                                        <i class="fa fa-play-circle fa-4x fa-inverse"></i>
+                                    </button>
+                                    <button type="button" id="pauseBtn" class="playpause btn btn-primary-outline btn-lg"
+                                        style="display: none">
+                                        <i class="fa fa-pause-circle fa-4x fa-inverse"></i>
+                                    </button>
+                                    <button type="button" id="nextBtn" class="btn btn-primary-outline btn-lg">
+                                        <i class="fa fa-step-forward fa-2x fa-inverse"></i>
+                                    </button>
+                                </div>
+                                <div class="col-md-12 fleft txtcenter">
+                                    <audio preload></audio>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="wrapper">
+                <ol class=" scrollbar" id="nav"></ol>
+            </div>
+        </div>
+    </div>
+    <script>
+        const fs = require('fs');
+
+        // Setup the player to autoplay the next track
+        var a = audiojs.createAll({
+            trackEnded: function () {
+                var next = $('ol li.playing').next();
+                if (!next.length) next = $('ol li').first();
+                next.addClass('playing').siblings().removeClass('playing');
+                audio.load($('a', next).attr('data-src'));
+                file_info($('a', next).attr('data-src'));
+                audio.play();
+                $("li span").removeClass("current_play fa fa-headphones");
+                $("li.playing span").addClass("current_play fa fa-headphones");
+                var track_id = $('a', next).attr('id');
+                localStorage.last_played_src = track_id;
+                $('#nav').animate({
+                    scrollTop: $('#nav').scrollTop() + 29
+                }, 500);
+                setTimeout(function () { vibrant_color(); }, 500);
+            }
+        });
+
+        // Load in the first track
+        var audio = a[0];
+
+        // first = $('ol a').attr('data-src');
+        // console.log("first" + first);
+        // $('ol li').first().addClass('playing');
+        // audio.load(first);
+
+        // Load in a track on click
+        $(document).on("click", "ol li a", function (e) {
+            e.preventDefault();
+            $(this).parent().addClass('playing').siblings().removeClass('playing');
+            $(this).parent().append();
+            $("li span").removeClass("current_play fa fa-headphones");
+            $("li.playing span").addClass("current_play fa fa-headphones");
+            $("#nav li .remove_list").show();
+            //console.log($(this).text());
+
+            audio.load($(this).attr('data-src'));
+            var data1 = $(this).attr('data-src');
+            audio.play();
+            data1 = data1.replace(/\\/g, '/');
+            file_info(data1);
+
+            $("#pauseBtn").show();
+            $("#playBtn").hide();
+            var track_id = $(this).attr('id');
+
+            localStorage.last_played_src = track_id;
+            $('#nav').animate({
+                scrollTop: $('#nav').scrollTop() + $('#nav li.playing').prev().offset().top - 310
+            }, 500);
+            setTimeout(function () { vibrant_color(); }, 500);
+
+
+        });
+
+        // Keyboard shortcuts
+        $(document).keydown(function (e) {
+            var unicode = e.charCode ? e.charCode : e.keyCode;
+            // right arrow
+            if (unicode == 39) {
+                var next = $('li.playing').next();
+                if (!next.length) next = $('ol li').first();
+                next.find('a').click();
+                // back arrow
+            } else if (unicode == 37) {
+                var prev = $('li.playing').prev();
+                if (!prev.length) prev = $('ol li').last();
+                prev.find('a').click();
+                // spacebar
+            } else if (unicode == 32) {
+                var playing_length = $('ol li.playing').length;
+
+                if (localStorage.last_played_src !== "" && playing_length === 0) {
+
+
+                    var last_played_id = localStorage.last_played_src;
+                    var last_played_src = $("#" + last_played_id).attr('data-src');
+                    $("#" + last_played_id).parent().addClass('playing');
+                    audio.load(last_played_src);
+                    file_info(last_played_src);
+                    audio.play();
+                    $("li span").removeClass("current_play fa fa-headphones");
+                    $("li.playing span").addClass("current_play fa fa-headphones");
+                    $(".playpause").toggle();
+                    localStorage.last_played_src = last_played_id;
+                    var pos = $("#" + last_played_id).offset().top - 345;
+
+                    $('#nav').animate({
+                        scrollTop: $('#nav').scrollTop() + $('#nav li.playing').prev().offset().top - 310
+                    }, 1500);
+
+                    setTimeout(function () { vibrant_color(); }, 500);
+
+                }
+                else {
+                    audio.playPause();
+                    $(".playpause").toggle();
+                }
+
+            }
+        });
+        $('#playBtn,#pauseBtn').click(function (e) {
+
+            var playing_length = $('ol li.playing').length;
+
+            if (localStorage.last_played_src !== "" && playing_length === 0) {
+
+
+                var last_played_id = localStorage.last_played_src;
+                var last_played_src = $("#" + last_played_id).attr('data-src');
+                $("#" + last_played_id).parent().addClass('playing');
+                audio.load(last_played_src);
+                file_info(last_played_src);
+                audio.play();
+                $("li span").removeClass("current_play fa fa-headphones");
+                $("li.playing span").addClass("current_play fa fa-headphones");
+                $(".playpause").toggle();
+                localStorage.last_played_src = last_played_id;
+                var pos = $("#" + last_played_id).offset().top - 345;
+
+                $('#nav').animate({
+                    scrollTop: $('#nav').scrollTop() + $('#nav li.playing').prev().offset().top - 310
+                }, 1500);
+
+                setTimeout(function () { vibrant_color(); }, 500);
+
+            }
+            else {
+
+                if (playing_length === 0) {
+
+                    var next = $('ol li.playing').next();
+                    if (!next.length) next = $('ol li').first();
+                    next.addClass('playing').siblings().removeClass('playing');
+
+                    audio.load($('a', next).attr('data-src'));
+                    file_info($('a', next).attr('data-src'));
+                    var track_id = $('a', next).attr('id');
+                    audio.play();
+                    $("li span").removeClass("current_play fa fa-headphones");
+                    $("li.playing span").addClass("current_play fa fa-headphones");
+                    $(".playpause").toggle();
+                    localStorage.last_played_src = track_id;
+                    setTimeout(function () { vibrant_color(); }, 500);
+                }
+                else {
+                    audio.playPause();
+                    $(".playpause").toggle();
+                }
+
+            }
+            setTimeout(function () { vibrant_color(); }, 500);
+
+
+
+        });
+        $('#nextBtn').click(function (e) {
+            var next = $('li.playing').next();
+            if (!next.length) next = $('ol li').first();
+            next.find('a').click();
+
+            $('#nav').animate({
+                scrollTop: $('#nav').scrollTop() + $('#nav li.playing').prev().offset().top - 310
+            }, 500);
+            setTimeout(function () { vibrant_color(); }, 500);
+
+        });
+        $('#prevBtn').click(function (e) {
+            var prev = $('li.playing').prev();
+            if (!prev.length) prev = $('ol li').last();
+            prev.find('a').click();
+
+            $('#nav').animate({
+                scrollTop: $('#nav').scrollTop() + $('#nav li.playing').prev().offset().top - 310
+            }, 500);
+            setTimeout(function () { vibrant_color(); }, 500);
+
+        });
+
+
+
+        $(document).ready(function () {
+            // console.log(localStorage.existing_path);
+            var existing_path = localStorage.existing_path;
+            if (existing_path != "") {
+                gerDirlist(existing_path);
+            }
+        });
+
+        $('#web_dir').change(function () {
+            localStorage.last_played_src = "";
+            $("ol").html("");
+            $('#nav').animate({
+                scrollTop: 0
+            }, 500);
+            var path = this.files[0].path;
+            // console.log(path);
+            localStorage.existing_path = path;
+            $("#hidden_path").val(path);
+            gerDirlist(path);
+            first = $('ol a').attr('data-src');
+            $('ol li').first().addClass('playing');
+            audio.load(first);
+            file_info(first);
+            audio.play();
+            $("li span").removeClass("current_play fa fa-headphones");
+            $("li.playing span").addClass("current_play fa fa-headphones");
+            var track_id = $('ol a').attr('id');
+            localStorage.last_played_src = track_id;
+            setTimeout(function () { vibrant_color(); }, 500);
+        });
+
+        document.addEventListener('drop', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            localStorage.existing_path = "";
+            $("ol").html("");
+            $('#nav').animate({
+                scrollTop: 0
+            }, 500);
+            for (let f of e.dataTransfer.files) {
+                console.log('File(s) you dragged here: ', f.path);
+                localStorage.existing_path = f.path;
+
+                $("#hidden_path").val(f.path);
+                var link = f.path;
+                gerDirlist(link);
+
+
+                first = $('ol a').attr('data-src');
+                $('ol li').first().addClass('playing');
+                audio.load(first);
+                file_info(first);
+                audio.play();
+                $("li span").removeClass("current_play fa fa-headphones");
+                $("li.playing span").addClass("current_play fa fa-headphones");
+                var track_id = $('ol a').attr('id');
+                localStorage.last_played_src = track_id;
+                setTimeout(function () { vibrant_color(); }, 500);
+            }
+        });
+        document.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+
+        $(document).on("click", "#capture", function (e) {
+            e.preventDefault();
+
+            $('#web_dir').trigger('click');
+        });
+        $(document).on("click", ".hiddenfile", function () {
+            $('#web_dir').trigger("click");
+        });
+        $(document).on("click", ".remove_list", function () {
+            var src1 = $(this).parent().html();
+            var id = $(this).attr("id");
+            $(this).parent().remove();
+        });
+
+
+
+        function vibrant_color() {
+            var src = $("#picture").attr("src");
+
+            var img = document.createElement('img');
+            img.setAttribute('src', src)
+            var vibrant = new Vibrant(img);
+            var swatches = vibrant.swatches()
+            var color = swatches.DarkVibrant.getHex();
+            var color2 = swatches.Vibrant.getHex();
+            // console.log(swatches);
+            $(".player_div").css("background-color", color);
+            $(".audiojs .progress").css("background-color", color2);
+        }
+
+
+        function file_info(data) {
+            // console.log(data);
+            // data = data.replace("//", '/');
+            var jsmediatags = require("jsmediatags");
+            jsmediatags.read(data, {
+                onSuccess: function (tag) {
+                    // console.log(tag);
+                    if (tag.tags.title) {
+                        var trackName = tag.tags.title;
+                        var trackArtist = tag.tags.artist;
+                        var trackAlbum = tag.tags.album;
+                        if (tag.tags.TCOM) {
+                            var composer = tag.tags.TCOM.data;
+                            $("#composer").html(composer);
+                        }
+                        else {
+                            $("#composer").html("");
+                        }
+
+                        $("#track").html(trackName);
+                        $("#artist").html(trackArtist);
+                        $("#album").html(trackAlbum);
+                    } else {
+                        const path = require('path');
+                        var filename = data;
+                        path.parse(filename).name;
+                        $("#track").html(path.parse(filename).name);
+                    }
+                    var image = tag.tags.picture;
+                    if (image) {
+                        //var pic = document.getElementById('picture')
+                        var base64String = "";
+                        for (var i = 0; i < image.data.length; i++) {
+                            base64String += String.fromCharCode(image.data[i]);
+                        }
+                        var base64 = "data:image/jpeg;base64," +
+                            window.btoa(base64String);
+                        document.getElementById('picture').style.display = "block";
+                        document.getElementById('picture').setAttribute('src', base64);
+                        // pic.style.backgroundImage = "url('" + base64 +"') ";
+                        // var img = document.createElement('img');
+
+
+                    } else {
+                        document.getElementById('picture').setAttribute('src', "img/rvm.png");
+
+                        // pic.style.backgroundImage = "none";                  
+                    }
+                },
+                onError: function (error) {
+                    console.log(':(', error.type, error.info);
+                }
+            });
+        }
+        function gerDirlist(dir) {
+            // console.log(dir);
+            var list_append = "";
+            var id = 1;
+            try {
+                var files = fs.readdirSync(dir);
+                files.forEach(function (f) {
+                    var ff = dir + '/' + f;
+                    var stats = fs.statSync(ff)
+                    if (stats.isDirectory()) {
+                        var files_dir = fs.readdirSync(ff);
+                        files_dir.forEach(function (f) {
+                            if (f.substr(-4) === '.mp3' || f.substr(-4) === '.m4a' || f.substr(-5) === '.webm' || f.substr(-4) === '.wav' || f.substr(-4) === '.aac' || f.substr(-4) === '.ogg' || f.substr(-5) === '.opus') {
+                                var e = f.substr((f.lastIndexOf('.') + 1));
+                                var dff = ff + '/' + f;
+                                getFileInfo(id, dff);
+                                f = f.split(".");
+                                f = f[0];
+                                list_append = "<li class='draggable file ext_" + e + "'><span></span> <a href='#' id='track_id_" + id + "' data-src='" + dff + "' rel='" + dff + "'>" + f + "</a><i class='remove_list fright fa fa-remove'></i></li>";
+                                $("#nav").append(list_append);
+                                id++;
+                            }
+                        });
+                    } else {
+                        if (f.substr(-4) === '.mp3' || f.substr(-4) === '.m4a' || f.substr(-5) === '.webm' || f.substr(-4) === '.wav' || f.substr(-4) === '.aac' || f.substr(-4) === '.ogg' || f.substr(-5) === '.opus') {
+                            var e = f.substr((f.lastIndexOf('.') + 1));
+                            // console.log(ff);
+                            getFileInfo(id, ff);
+                            f = f.split(".");
+                            f = f[0];
+                            list_append = "<li class=' file ext_" + e + "'><span></span> <a href='#' id='track_id_" + id + "' data-src='" + ff + "' rel='" + ff + "'>" + f + "</a><i class='remove_list fright fa fa-remove'></i></li>";
+                            $("#nav").append(list_append);
+                        }
+                        id++;
+                    }
+                });
+            } catch (e) {
+                // console.log(e);
+
+            }
+        }
+
+        function getFileInfo(id, f) {
+            //console.log(f);
+            //f = f.replace("//", '/');
+            var jsmediatags = require("jsmediatags");
+            jsmediatags.read(f, {
+                onSuccess: function (tag) {
+                    // console.log(tag);
+                    if (tag.tags.title) {
+                        var trackYear = tag.tags.year;
+                        var trackAlbum = tag.tags.album;
+
+                        $("#track_id_" + id).append("-" + trackAlbum + "-" + trackYear);
+                    } else {
+
+                    }
+
+                },
+                onError: function (error) {
+                    // console.log(':(', error.type, error.info);
+                }
+            });
+        }
+    </script>
+</body>
+<script>
+    // You can also require other files to run in this process
+    require('./renderer.js')
+</script>
+
+</html>
